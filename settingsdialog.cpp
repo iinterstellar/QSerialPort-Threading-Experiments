@@ -217,4 +217,6 @@ void SettingsDialog::updateSettings()
     m_currentSettings.stringFlowControl = m_ui->flowControlBox->currentText();
 
     m_currentSettings.localEchoEnabled = m_ui->localEchoCheckBox->isChecked();
+
+	m_currentSettings.multithreading = m_ui->multiThreadCheckBox->isChecked(); // Switch between Qt implemented default & experimental mode
 }

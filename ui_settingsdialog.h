@@ -20,7 +20,6 @@
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QSpacerItem>
-#include <QtWidgets/QVBoxLayout>
 
 QT_BEGIN_NAMESPACE
 
@@ -53,14 +52,15 @@ public:
     QSpacerItem *horizontalSpacer;
     QPushButton *applyButton;
     QGroupBox *additionalOptionsGroupBox;
-    QVBoxLayout *verticalLayout;
+    QHBoxLayout *horizontalLayout_2;
     QCheckBox *localEchoCheckBox;
+    QCheckBox *multiThreadCheckBox;
 
     void setupUi(QDialog *SettingsDialog)
     {
         if (SettingsDialog->objectName().isEmpty())
             SettingsDialog->setObjectName(QString::fromUtf8("SettingsDialog"));
-        SettingsDialog->resize(281, 262);
+        SettingsDialog->resize(302, 296);
         gridLayout_3 = new QGridLayout(SettingsDialog);
         gridLayout_3->setObjectName(QString::fromUtf8("gridLayout_3"));
         parametersBox = new QGroupBox(SettingsDialog);
@@ -178,13 +178,18 @@ public:
 
         additionalOptionsGroupBox = new QGroupBox(SettingsDialog);
         additionalOptionsGroupBox->setObjectName(QString::fromUtf8("additionalOptionsGroupBox"));
-        verticalLayout = new QVBoxLayout(additionalOptionsGroupBox);
-        verticalLayout->setObjectName(QString::fromUtf8("verticalLayout"));
+        horizontalLayout_2 = new QHBoxLayout(additionalOptionsGroupBox);
+        horizontalLayout_2->setObjectName(QString::fromUtf8("horizontalLayout_2"));
         localEchoCheckBox = new QCheckBox(additionalOptionsGroupBox);
         localEchoCheckBox->setObjectName(QString::fromUtf8("localEchoCheckBox"));
         localEchoCheckBox->setChecked(true);
 
-        verticalLayout->addWidget(localEchoCheckBox);
+        horizontalLayout_2->addWidget(localEchoCheckBox);
+
+        multiThreadCheckBox = new QCheckBox(additionalOptionsGroupBox);
+        multiThreadCheckBox->setObjectName(QString::fromUtf8("multiThreadCheckBox"));
+
+        horizontalLayout_2->addWidget(multiThreadCheckBox);
 
 
         gridLayout_3->addWidget(additionalOptionsGroupBox, 1, 0, 1, 2);
@@ -214,6 +219,7 @@ public:
         applyButton->setText(QCoreApplication::translate("SettingsDialog", "Apply", nullptr));
         additionalOptionsGroupBox->setTitle(QCoreApplication::translate("SettingsDialog", "Additional options", nullptr));
         localEchoCheckBox->setText(QCoreApplication::translate("SettingsDialog", "Local echo", nullptr));
+        multiThreadCheckBox->setText(QCoreApplication::translate("SettingsDialog", "Multi-Threading", nullptr));
     } // retranslateUi
 
 };

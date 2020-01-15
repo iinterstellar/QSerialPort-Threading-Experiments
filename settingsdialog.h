@@ -83,6 +83,7 @@ public:
         QSerialPort::FlowControl flowControl;
         QString stringFlowControl;
         bool localEchoEnabled;
+		bool multithreading;
     };
 
     explicit SettingsDialog(QWidget *parent = nullptr);

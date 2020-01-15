@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>281</width>
-    <height>262</height>
+    <width>302</width>
+    <height>296</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -156,7 +156,7 @@
      <property name="title">
       <string>Additional options</string>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
       <item>
        <widget class="QCheckBox" name="localEchoCheckBox">
         <property name="text">
@@ -164,6 +164,13 @@
         </property>
         <property name="checked">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QCheckBox" name="multiThreadCheckBox">
+        <property name="text">
+         <string>Multi-Threading</string>
         </property>
        </widget>
       </item>
