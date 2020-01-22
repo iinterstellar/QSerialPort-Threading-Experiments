@@ -54,6 +54,11 @@
 
 #include <QMainWindow>
 #include <QSerialPort>
+#include <QThread>
+#include <QPointer>
+
+// User defined Classes
+#include "SerialPortFacade.h"
 
 QT_BEGIN_NAMESPACE
 
@@ -76,6 +81,17 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+// Mutli-Threading signals
+signals:
+	void openSerialPort_MT(
+		const QString& portname,
+		const qint32 baudrate,
+		const QSerialPort::DataBits dbits,
+		const QSerialPort::Parity parity,
+		const QSerialPort::StopBits stopbits,
+		const QSerialPort::FlowControl flow);
+	void closeSerialPort_MT();
+
 private slots:
     void openSerialPort();
     void closeSerialPort();
@@ -84,9 +100,12 @@ private slots:
     void readData();
 
     void handleError(QSerialPort::SerialPortError error);
+    // Multi-Threading Private Slots
+    void handleConnectionChange(const bool conn_status);
 
 private:
     void initActionsConnections();
+	void initMultiThreadingConnections();
 
 private:
     void showStatusMessage(const QString &message);
@@ -96,6 +115,9 @@ private:
     Console *m_console = nullptr;
     SettingsDialog *m_settings = nullptr;
     QSerialPort *m_serial = nullptr;
+	// Multi-Threading members
+	QPointer<SerialPortFacade> m_multithreadserial = nullptr;
+	QPointer<QThread> m_serialPortThread = nullptr;
 };
 
 #endif // MAINWINDOW_H
