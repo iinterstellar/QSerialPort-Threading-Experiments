@@ -57,16 +57,22 @@
 #include <QLabel>
 #include <QMessageBox>
 
+#ifdef _DEBUG
+#include <QDebug>
+#endif
+
 //! [0]
-MainWindow::MainWindow(QWidget *parent) :
-    QMainWindow(parent),
-    m_ui(new Ui::MainWindow),
-    m_status(new QLabel),
-    m_console(new Console),
-    m_settings(new SettingsDialog),
-//! [1]
-    m_serial(new QSerialPort(this))
-//! [1]
+MainWindow::MainWindow(QWidget* parent) :
+	QMainWindow(parent),
+	m_ui(new Ui::MainWindow),
+	m_status(new QLabel),
+	m_console(new Console),
+	m_settings(new SettingsDialog),
+	//! [1]
+	m_serial(new QSerialPort(this)),
+	//! [1]
+	m_multithreadserial(nullptr),
+	m_serialPortThread(nullptr)
 {
 //! [0]
     m_ui->setupUi(this);
@@ -89,6 +95,12 @@ MainWindow::MainWindow(QWidget *parent) :
 //! [2]
     connect(m_console, &Console::getData, this, &MainWindow::writeData);
 //! [3]
+	// Registration necessary for Queued connections
+	// From QT: "...make types available to non-template based functions, such as the queued signal and slot connections."
+	qRegisterMetaType<QSerialPort::DataBits>();
+	qRegisterMetaType<QSerialPort::Parity>();
+	qRegisterMetaType<QSerialPort::StopBits>();
+	qRegisterMetaType<QSerialPort::FlowControl>();
 }
 //! [3]
 
@@ -96,6 +108,7 @@ MainWindow::~MainWindow()
 {
     delete m_settings;
     delete m_ui;
+	emit closeSerialPort_MT(); // Shuts down Serial Port Thread if still running
 }
 
 //! [4]
@@ -109,10 +122,24 @@ void MainWindow::openSerialPort()
     m_serial->setStopBits(p.stopBits);
     m_serial->setFlowControl(p.flowControl);
 
-	// Multi-Threading Option enabled
-	if (p.multithreading) {
+	if (p.multithreading) { // Case Multi-Threading Option enabled
 		showStatusMessage(tr("Running Multi-Threading..."));
-		// TODO: Enable Multi-Threading experimentation mode here.
+		if (m_serialPortThread == nullptr && m_multithreadserial == nullptr)
+		{
+			m_multithreadserial = new SerialPortFacade();
+			m_serialPortThread = new QThread();
+			m_multithreadserial->moveToThread(m_serialPortThread);
+			initMultiThreadingConnections();
+			m_serialPortThread->start();
+			emit openSerialPort_MT(p.name, p.baudRate, p.dataBits, p.parity, p.stopBits, p.flowControl);
+		}
+		else // Error case, should never be reached
+		{
+			#ifdef _DEBUG
+				qDebug() << "Error: Multi-threading members were not deallocated when open serial port was attempted.";
+			#endif
+			showStatusMessage(tr("Multi-Threading Open Serial Port error"));
+		}
 	}
 
 	// Else default to Qt implementation
@@ -141,13 +168,39 @@ void MainWindow::openSerialPort()
 //! [5]
 void MainWindow::closeSerialPort()
 {
-    if (m_serial->isOpen())
-        m_serial->close();
-    m_console->setEnabled(false);
-    m_ui->actionConnect->setEnabled(true);
-    m_ui->actionDisconnect->setEnabled(false);
-    m_ui->actionConfigure->setEnabled(true);
-    showStatusMessage(tr("Disconnected"));
+	const SettingsDialog::Settings p = m_settings->settings();
+	if (p.multithreading) {
+		// Multithreading shutdown sequence
+		m_console->setEnabled(false);
+		m_ui->actionConnect->setEnabled(true);
+		m_ui->actionDisconnect->setEnabled(false);
+		m_ui->actionConfigure->setEnabled(true);
+		showStatusMessage(tr("Disconnected"));
+
+		// Signal shutdown thread sequence
+		emit closeSerialPort_MT();
+		if (m_serialPortThread.isNull() == false && m_serialPortThread->isRunning())	 // Case signal/slot mechanism failed to shutdown thread. Force shutdown (should never happen)
+		{
+			#ifdef _DEBUG
+				qDebug() << "WARNING: SerialPort QThread was still running after emitting close serial port signal.";
+			#endif 
+			m_serialPortThread->quit();
+			m_serialPortThread->wait();
+		}
+		const bool multi_serial_was_deallocated = m_multithreadserial.isNull(); // Just for debugging
+		const bool multi_thread_was_deallocated = m_serialPortThread.isNull();
+		if (multi_thread_was_deallocated == false)
+			m_serialPortThread.clear(); // Deallocate QThread. During runtime use, deleateLater() will not have a chance to execute deallocation.
+	}
+	else { // Single thread Default implementation
+		if (m_serial->isOpen())
+			m_serial->close();
+		m_console->setEnabled(false);
+		m_ui->actionConnect->setEnabled(true);
+		m_ui->actionDisconnect->setEnabled(false);
+		m_ui->actionConfigure->setEnabled(true);
+		showStatusMessage(tr("Disconnected"));
+	}
 }
 //! [5]
 
@@ -162,7 +215,9 @@ void MainWindow::about()
 //! [6]
 void MainWindow::writeData(const QByteArray &data)
 {
-    m_serial->write(data);
+	const SettingsDialog::Settings p = m_settings->settings();
+	if(!p.multithreading) // Disable default write when Multi-threading mode is enabled
+		m_serial->write(data);
 }
 //! [6]
 
@@ -198,4 +253,45 @@ void MainWindow::initActionsConnections()
 void MainWindow::showStatusMessage(const QString &message)
 {
     m_status->setText(message);
+}
+
+// Multi-Thread slot that handles Serial Port connection status changes. Updates GUI accordingly
+void MainWindow::handleConnectionChange(const bool conn_status)
+{
+	static bool last_conn_status = false;
+	if (last_conn_status != conn_status)
+	{
+		last_conn_status = conn_status;
+		const SettingsDialog::Settings p = m_settings->settings();
+		if (last_conn_status == true)
+		{
+			m_console->setEnabled(true);
+			m_console->setLocalEchoEnabled(false); // TODO: Fix checkboxes. Need to add a 'Default' checkbox and let Local Echo be enabled for both modes
+			m_ui->actionConnect->setEnabled(false);
+			m_ui->actionDisconnect->setEnabled(true);
+			m_ui->actionConfigure->setEnabled(false);
+			showStatusMessage(tr("Connected to %1 : %2, %3, %4, %5, %6, running Multithreading implementation...")
+				.arg(p.name).arg(p.stringBaudRate).arg(p.stringDataBits)
+				.arg(p.stringParity).arg(p.stringStopBits).arg(p.stringFlowControl));
+		}
+		else
+		{
+			closeSerialPort();
+		}
+	}
+}
+
+// Initializes Multi-Threading signal/slot connections
+void MainWindow::initMultiThreadingConnections()
+{
+	// Serial Port behavior specific connections
+	connect(this, &MainWindow::openSerialPort_MT, m_multithreadserial, &SerialPortFacade::open);
+	connect(this, &MainWindow::closeSerialPort_MT, m_multithreadserial, &SerialPortFacade::close, Qt::ConnectionType::BlockingQueuedConnection); // Blocking guarantees serial port has a chance to wrap everything up. Negligible blocking cost
+	connect(m_console, &Console::getData, m_multithreadserial, &SerialPortFacade::write);
+	connect(m_multithreadserial, &SerialPortFacade::printReadData, m_console, &Console::putData);
+	connect(m_multithreadserial, &SerialPortFacade::connectionChange, this, &MainWindow::handleConnectionChange);
+	// Thread specific connections. Ordering matters here.
+	connect(m_multithreadserial, &SerialPortFacade::endThread, m_serialPortThread, &QThread::quit, Qt::ConnectionType::DirectConnection); // DirectConnection forces the thread to quit instantly on signal emition
+	connect(m_multithreadserial, &SerialPortFacade::endThread, m_multithreadserial, &SerialPortFacade::deleteLater);
+	connect(m_serialPortThread, &QThread::finished, m_serialPortThread, &QThread::deleteLater);
 }

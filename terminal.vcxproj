@@ -203,6 +203,7 @@
     <ClCompile Include="console.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="mainwindow.cpp" />
+    <ClCompile Include="SerialPortFacade.cpp" />
     <ClCompile Include="settingsdialog.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -245,6 +246,9 @@
     <None Include="images\settings.png" />
     <QtRcc Include="terminal.qrc">
     </QtRcc>
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="SerialPortFacade.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">
